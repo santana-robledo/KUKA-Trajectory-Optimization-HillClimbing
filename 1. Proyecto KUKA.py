@@ -13,30 +13,25 @@ warnings.filterwarnings('ignore')
 print("🎯 INICIANDO PROYECTO KUKA - SUAVIZADO DE TRAYECTORIAS")
 print("=" * 60)
 
-
-# ============================================================================
-# 1. GENERACIÓN DE TRAYECTORIA DE PRUEBA CON VIBRACIONES
-# ============================================================================
-
 def generar_trayectoria_prueba():
 
     print("📈 Generando trayectoria de prueba...")
 
-    t = np.linspace(0, 8, 300)  # 8 segundos, 300 puntos
+    t = np.linspace(0, 8, 300)
 
     # Trayectoria base suave (movimiento natural del robot)
-    x_base = 2 * np.sin(0.8 * t) + 0.5 * t
+    x_base = 2 * np.sin(0.8 * t) + 0.5 * t #movimiento oscilatorio en x
     y_base = 1.5 * np.cos(0.6 * t) + 0.3 * t
 
     # Vibraciones simuladas (problema real a resolver)
-    vib_x = 0.4 * np.sin(12 * t) + 0.1 * np.random.normal(0, 0.15, len(t))
+    vib_x = 0.4 * np.sin(12 * t) + 0.1 * np.random.normal(0, 0.15, len(t))#vibraciones periodicas
     vib_y = 0.3 * np.cos(10 * t) + 0.1 * np.random.normal(0, 0.15, len(t))
 
     # Combinar base + vibraciones
     x = x_base + vib_x
     y = y_base + vib_y
 
-    trajectory = np.column_stack([x, y])
+    trajectory = np.column_stack([x, y]) #combina los arrays x y y en una sola matriz 2D
 
     print(f"✅ Trayectoria generada: {len(trajectory)} puntos, {t[-1]:.1f} segundos")
     return trajectory, t
@@ -45,25 +40,20 @@ def generar_trayectoria_prueba():
 # Generar datos de prueba
 trajectory, times = generar_trayectoria_prueba()
 
-
-# ============================================================================
-# 2. ANÁLISIS INICIAL - CALCULAR VIBRACIONES (JERK)
-# ============================================================================
-
 def analizar_vibraciones(trayectoria, tiempos):
     print("📊 Analizando vibraciones de la trayectoria...")
 
     # Crear splines cúbicos para interpolación suave
-    spline_x = CubicSpline(tiempos, trayectoria[:, 0])
+    spline_x = CubicSpline(tiempos, trayectoria[:, 0])#convierte tus datos discretos de X en una función suave continua.
     spline_y = CubicSpline(tiempos, trayectoria[:, 1])
 
     # Evaluar en puntos más densos para análisis preciso
-    t_denso = np.linspace(tiempos[0], tiempos[-1], 1000)
+    t_denso = np.linspace(tiempos[0], tiempos[-1], 1000)#Aquí estamos generando 1000 puntos entre el tiempo inicial (tiempos[0]) y el final (tiempos[-1]).
 
     # Calcular JERK (derivada tercera - indica vibraciones)
     jerk_x = spline_x.derivative(3)(t_denso)
     jerk_y = spline_y.derivative(3)(t_denso)
-    jerk_total = np.sqrt(jerk_x ** 2 + jerk_y ** 2)
+    jerk_total = np.sqrt(jerk_x ** 2 + jerk_y ** 2)#magnitud total del jerk en cada instante de tiempo.
 
     # Calcular ACELERACIÓN (derivada segunda)
     acc_x = spline_x.derivative(2)(t_denso)
@@ -123,7 +113,7 @@ def visualizacion_inicial(trayectoria, tiempos, datos_analisis):
     axes[0, 1].axhline(y=datos_analisis['jerk_promedio'], color='red', linestyle='--',
                        alpha=0.7, label=f'Promedio: {datos_analisis["jerk_promedio"]:.3f}')
     axes[0, 1].set_xlabel('Tiempo (segundos)')
-    axes[0, 1].set_ylabel('Jerk (m/s³)')
+    axes[0, 1].set_ylabel('Jerk (mm/s³)')
     axes[0, 1].set_title('ANÁLISIS DE VIBRACIONES - Jerk vs Tiempo')
     axes[0, 1].legend()
     axes[0, 1].grid(True, alpha=0.3)
@@ -134,7 +124,7 @@ def visualizacion_inicial(trayectoria, tiempos, datos_analisis):
     axes[1, 0].axhline(y=datos_analisis['acc_max'], color='green', linestyle='--',
                        alpha=0.7, label=f'Máximo: {datos_analisis["acc_max"]:.3f}')
     axes[1, 0].set_xlabel('Tiempo (segundos)')
-    axes[1, 0].set_ylabel('Aceleración (m/s²)')
+    axes[1, 0].set_ylabel('Aceleración (mm/s²)')
     axes[1, 0].set_title('ACELERACIÓN vs TIEMPO')
     axes[1, 0].legend()
     axes[1, 0].grid(True, alpha=0.3)
@@ -149,7 +139,7 @@ def visualizacion_inicial(trayectoria, tiempos, datos_analisis):
     axes[1, 1].set_title('MÉTRICAS DE VIBRACIÓN - Resumen')
     axes[1, 1].grid(True, alpha=0.3)
 
-    # Añadir valores en las barras
+    # añade etiquetas con el valor exacto encima de cada barra en el gráfico.
     for bar, valor in zip(bars, valores):
         axes[1, 1].text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.01,
                         f'{valor:.3f}', ha='center', va='bottom', fontweight='bold')
@@ -175,16 +165,16 @@ class OptimizadorTrayectoria:
 
     def calcular_jerk_trayectoria(self, trayectoria):
         try:
-            spline_x = CubicSpline(self.tiempos_orig, trayectoria[:, 0])
+            spline_x = CubicSpline(self.tiempos_orig, trayectoria[:, 0])#Se crea una interpolación cúbica
             spline_y = CubicSpline(self.tiempos_orig, trayectoria[:, 1])
 
-            # Evaluar en puntos densos para cálculo preciso
+            # Se genera una secuencia de 500 puntos de tiempo entre el inicio y el final de la trayectoria.
             t_denso = np.linspace(self.tiempos_orig[0], self.tiempos_orig[-1], 500)
 
             # Calcular jerk (derivada tercera)
             jerk_x = spline_x.derivative(3)(t_denso)
             jerk_y = spline_y.derivative(3)(t_denso)
-            jerk_total = np.sqrt(jerk_x ** 2 + jerk_y ** 2)
+            jerk_total = np.sqrt(jerk_x ** 2 + jerk_y ** 2)#Magnitud total del jerk
 
             return np.mean(jerk_total)  # Jerk promedio como métrica principal
 
@@ -211,7 +201,7 @@ class OptimizadorTrayectoria:
 
             # Suavizar puntos adyacentes para mantener continuidad
             # Esto evita cambios bruscos en la trayectoria
-            nueva_trayectoria[idx - 1] += perturbacion * 0.5
+            nueva_trayectoria[idx - 1] += perturbacion * 0.5#Se reduce su magnitud pero mantiene su direccion
             nueva_trayectoria[idx + 1] += perturbacion * 0.3
             nueva_trayectoria[idx - 2] += perturbacion * 0.2
             nueva_trayectoria[idx + 2] += perturbacion * 0.1
@@ -219,13 +209,6 @@ class OptimizadorTrayectoria:
         return nueva_trayectoria
 
     def hill_climbing_optimizado(self, iteraciones=150, paso_inicial=0.15):
-        """
-        Algoritmo principal de optimización con Hill Climbing mejorado
-        Features:
-        - Múltiples vecinos por iteración
-        - Paso adaptativo
-        - Reinicios suaves
-        """
         print("\n🎯 INICIANDO OPTIMIZACIÓN CON HILL CLIMBING")
         print(f"   Iteraciones: {iteraciones}, Paso inicial: {paso_inicial}")
 
@@ -303,11 +286,6 @@ class OptimizadorTrayectoria:
 
         return self.mejor_trayectoria
 
-
-# ============================================================================
-# 5. EJECUTAR OPTIMIZACIÓN
-# ============================================================================
-
 print("\n" + "=" * 60)
 print("🚀 EJECUTANDO OPTIMIZACIÓN...")
 print("=" * 60)
@@ -325,10 +303,6 @@ print(f"   • Jerk original: {jerk_orig:.4f}")
 print(f"   • Jerk optimizado: {jerk_optimizado:.4f}")
 print(f"   • Reducción de vibraciones: {mejora_porcentaje:.1f}%")
 
-
-# ============================================================================
-# 6. VISUALIZACIÓN COMPARATIVA - ANTES vs DESPUÉS
-# ============================================================================
 
 def crear_comparacion_completa(trayectoria_orig, trayectoria_opt, optimizador, mejora_porcentaje):
     print("\n📈 Generando gráficos comparativos...")
@@ -457,10 +431,10 @@ def crear_comparacion_completa(trayectoria_orig, trayectoria_opt, optimizador, m
     • Duración: {times[-1]:.1f} segundos
 
     🏆 EVALUACIÓN FINAL:
-    {'✅ EXCELENTE - Reducción > 60%' if mejora_porcentaje > 60 else
-    '🟡 MUY BUENA - Reducción 40-60%' if mejora_porcentaje > 40 else
-    '🔵 BUENA - Reducción 20-40%' if mejora_porcentaje > 20 else
-    '⚪ MODERADA - Reducción < 20%'}
+    {'EXCELENTE - Reducción > 60%' if mejora_porcentaje > 60 else
+    'MUY BUENA - Reducción 40-60%' if mejora_porcentaje > 40 else
+    'BUENA - Reducción 20-40%' if mejora_porcentaje > 20 else
+    'MODERADA - Reducción < 20%'}
 
     💡 INTERPRETACIÓN:
     El algoritmo redujo significativamente las vibraciones
@@ -481,73 +455,6 @@ def crear_comparacion_completa(trayectoria_orig, trayectoria_opt, optimizador, m
 fig_comparativa = crear_comparacion_completa(trajectory, trayectoria_optimizada,
                                              optimizador, mejora_porcentaje)
 
-
-# ============================================================================
-# 7. ANIMACIÓN COMPARATIVA - TRAYECTORIA EN MOVIMIENTO
-# ============================================================================
-
-def crear_animacion_comparativa(trayectoria_orig, trayectoria_opt, tiempos):
-    """Crea animación que muestra ambas trayectorias en movimiento"""
-    print("\n🎬 Generando animación comparativa...")
-
-    fig, ax = plt.subplots(figsize=(12, 8))
-
-    # Configurar límites del gráfico
-    margin = 0.5
-    ax.set_xlim(min(trayectoria_orig[:, 0]) - margin, max(trayectoria_orig[:, 0]) + margin)
-    ax.set_ylim(min(trayectoria_orig[:, 1]) - margin, max(trayectoria_orig[:, 1]) + margin)
-    ax.set_xlabel('X (metros)')
-    ax.set_ylabel('Y (metros)')
-    ax.set_title('🎥 ANIMACIÓN: Trayectoria Original vs Optimizada', fontsize=14, fontweight='bold')
-    ax.grid(True, alpha=0.3)
-    ax.axis('equal')
-
-    # Elementos de la animación
-    line_orig, = ax.plot([], [], 'b-', linewidth=3, alpha=0.6, label='Original')
-    line_opt, = ax.plot([], [], 'r-', linewidth=2, alpha=0.9, label='Optimizada')
-    point_orig, = ax.plot([], [], 'bo', markersize=8, alpha=0.8, markeredgecolor='white')
-    point_opt, = ax.plot([], [], 'ro', markersize=8, alpha=0.8, markeredgecolor='white')
-
-    # Texto informativo
-    text_info = ax.text(0.02, 0.98, '', transform=ax.transAxes, verticalalignment='top',
-                        bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-
-    ax.legend(loc='lower right')
-
-    def animar(frame):
-        # Mostrar progreso hasta el frame actual
-        line_orig.set_data(trayectoria_orig[:frame, 0], trayectoria_orig[:frame, 1])
-        line_opt.set_data(trayectoria_opt[:frame, 0], trayectoria_opt[:frame, 1])
-
-        # Puntos actuales
-        if frame > 0:
-            point_orig.set_data([trayectoria_orig[frame - 1, 0]], [trayectoria_orig[frame - 1, 1]])
-            point_opt.set_data([trayectoria_opt[frame - 1, 0]], [trayectoria_opt[frame - 1, 1]])
-
-        # Actualizar texto informativo
-        progreso = (frame / len(trayectoria_orig)) * 100
-        text_info.set_text(f'Progreso: {progreso:.1f}%\nFrame: {frame}/{len(trayectoria_orig)}')
-
-        return line_orig, line_opt, point_orig, point_opt, text_info
-
-    # Crear animación
-    anim = animation.FuncAnimation(fig, animar, frames=len(trayectoria_orig),
-                                   interval=30, blit=True, repeat=True)
-
-    plt.tight_layout()
-    plt.show()
-
-    print("✅ Animación creada exitosamente!")
-    return anim
-
-
-# Crear animación (opcional - puede tomar unos segundos)
-# animacion = crear_animacion_comparativa(trajectory, trayectoria_optimizada, times)
-
-# ============================================================================
-# 8. RESUMEN FINAL Y EXPORTACIÓN
-# ============================================================================
-
 print("\n" + "=" * 70)
 print("🎉 PROYECTO KUKA COMPLETADO EXITOSAMENTE!")
 print("=" * 70)
@@ -564,25 +471,3 @@ print(f"""
    • Iteraciones: {len(optimizador.historial_jerk)}
    • Duración optimizada: {times[-1]:.1f} segundos
 """)
-
-
-# Opcional: Guardar resultados
-def guardar_resultados(trayectoria_opt, optimizador, filename="resultado_kuka.npz"):
-    """Guarda los resultados para uso futuro"""
-    np.savez(filename,
-             trayectoria_optimizada=trayectoria_opt,
-             historial_jerk=optimizador.historial_jerk,
-             historial_mejoras=optimizador.historial_mejoras,
-             mejora_porcentaje=mejora_porcentaje,
-             parametros_optimizacion={
-                 'iteraciones': len(optimizador.historial_jerk),
-                 'jerk_inicial': jerk_orig,
-                 'jerk_final': jerk_optimizado
-             })
-    print(f"💾 Resultados guardados en: {filename}")
-
-
-# Guardar resultados (opcional)
-# guardar_resultados(trayectoria_optimizada, optimizador)
-
-print("\n✨ ¡Proyecto Terminado! ✨")
