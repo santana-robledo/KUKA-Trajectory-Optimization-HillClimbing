@@ -4,8 +4,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline
-import matplotlib.animation as animation
-from IPython.display import HTML
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -471,3 +469,4 @@ print(f"""
    • Iteraciones: {len(optimizador.historial_jerk)}
    • Duración optimizada: {times[-1]:.1f} segundos
 """)
+
