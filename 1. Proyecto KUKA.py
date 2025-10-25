@@ -470,3 +470,301 @@ print(f"""
    • Duración optimizada: {times[-1]:.1f} segundos
 """)
 
+
+def evaluar_rutas_pruebas():
+    """
+    Evalúa el algoritmo con 5 trayectorias de prueba diferentes
+    y analiza el jerk antes y después de la optimización.
+    """
+    print("\n" + "=" * 70)
+    print("🧪 EVALUANDO 5 TRAYECTORIAS DE PRUEBA - ANÁLISIS DE JERK")
+    print("=" * 70)
+
+    # Configuración común
+    tiempos = np.linspace(0, 8, 300)
+
+    # Generar 5 trayectorias de prueba diferentes
+    trayectorias_prueba = {
+        "PRUEBA_1": generar_trayectoria_1(tiempos),
+        "PRUEBA_2": generar_trayectoria_2(tiempos),
+        "PRUEBA_3": generar_trayectoria_3(tiempos),
+        "PRUEBA_4": generar_trayectoria_4(tiempos),
+        "PRUEBA_5": generar_trayectoria_5(tiempos)
+    }
+
+    resultados = {}
+
+    for nombre, trayectoria in trayectorias_prueba.items():
+        print(f"\n🔍 Analizando: {nombre}")
+        print("-" * 40)
+
+        # Analizar vibraciones iniciales
+        jerk_inicial, datos_inicial = analizar_vibraciones(trayectoria, tiempos)
+
+        # Optimizar trayectoria
+        optimizador = OptimizadorTrayectoria(trayectoria, tiempos)
+        trayectoria_opt = optimizador.hill_climbing_optimizado(iteraciones=50, paso_inicial=0.1)
+
+        # Analizar vibraciones finales
+        jerk_final = optimizador.calcular_jerk_trayectoria(trayectoria_opt)
+        mejora = ((jerk_inicial - jerk_final) / jerk_inicial) * 100
+
+        # Guardar resultados
+        resultados[nombre] = {
+            'jerk_inicial': jerk_inicial,
+            'jerk_final': jerk_final,
+            'mejora_porcentaje': mejora,
+            'trayectoria_original': trayectoria,
+            'trayectoria_optimizada': trayectoria_opt,
+            'optimizador': optimizador
+        }
+
+        print(f"   • Jerk inicial: {jerk_inicial:.4f}")
+        print(f"   • Jerk final: {jerk_final:.4f}")
+        print(f"   • Mejora: {mejora:.1f}%")
+
+    # Mostrar resumen y gráficas
+    mostrar_resultados_completos(resultados, tiempos)
+
+    return resultados
+
+
+def generar_trayectoria_1(tiempos):
+    """Trayectoria lineal con vibraciones suaves"""
+    x = 0.8 * tiempos + 0.2 * np.sin(6 * tiempos)
+    y = 0.5 * tiempos + 0.1 * np.cos(8 * tiempos)
+    return np.column_stack([x, y])
+
+
+def generar_trayectoria_2(tiempos):
+    """Trayectoria circular con vibraciones moderadas"""
+    radio = 1.5
+    x = radio * np.cos(0.7 * tiempos) + 0.3 * np.sin(10 * tiempos)
+    y = radio * np.sin(0.7 * tiempos) + 0.2 * np.cos(12 * tiempos)
+    return np.column_stack([x, y])
+
+
+def generar_trayectoria_3(tiempos):
+    """Trayectoria sinusoidal compleja"""
+    x = 2 * np.sin(0.5 * tiempos) + 0.5 * np.sin(3 * tiempos) + 0.1 * np.random.normal(0, 0.15, len(tiempos))
+    y = 1.5 * np.cos(0.6 * tiempos) + 0.4 * np.cos(2 * tiempos) + 0.1 * np.random.normal(0, 0.1, len(tiempos))
+    return np.column_stack([x, y])
+
+
+def generar_trayectoria_4(tiempos):
+    """Trayectoria en espiral con vibraciones"""
+    radio = 0.1 * tiempos
+    x = radio * np.cos(2 * tiempos) + 0.2 * np.sin(15 * tiempos)
+    y = radio * np.sin(2 * tiempos) + 0.15 * np.cos(18 * tiempos)
+    return np.column_stack([x, y])
+
+
+def generar_trayectoria_5(tiempos):
+    """Trayectoria con cambios bruscos de dirección"""
+    x = np.zeros_like(tiempos)
+    y = np.zeros_like(tiempos)
+
+    # Crear segmentos con diferentes direcciones
+    segmentos = 5
+    puntos_por_segmento = len(tiempos) // segmentos
+
+    for i in range(segmentos):
+        inicio = i * puntos_por_segmento
+        fin = (i + 1) * puntos_por_segmento if i < segmentos - 1 else len(tiempos)
+
+        if i % 2 == 0:
+            x[inicio:fin] = 0.5 * tiempos[inicio:fin] + 0.3 * np.sin(8 * tiempos[inicio:fin])
+            y[inicio:fin] = 0.3 * tiempos[inicio:fin] + 0.2 * np.cos(6 * tiempos[inicio:fin])
+        else:
+            x[inicio:fin] = 1.0 - 0.3 * tiempos[inicio:fin] + 0.2 * np.sin(10 * tiempos[inicio:fin])
+            y[inicio:fin] = 0.8 - 0.2 * tiempos[inicio:fin] + 0.15 * np.cos(12 * tiempos[inicio:fin])
+
+    return np.column_stack([x, y])
+
+
+def mostrar_resultados_completos(resultados, tiempos):
+    """Muestra gráficas completas de las 5 pruebas"""
+    print("\n" + "=" * 70)
+    print("📊 RESULTADOS COMPLETOS - 5 PRUEBAS DE TRAYECTORIAS")
+    print("=" * 70)
+
+    # Crear figura grande con subplots organizados correctamente
+    fig = plt.figure(figsize=(20, 16))
+
+    # 1. Gráfico de comparación de mejoras
+    ax1 = plt.subplot2grid((4, 5), (0, 0), colspan=2)
+    nombres = list(resultados.keys())
+    mejoras = [resultados[nombre]['mejora_porcentaje'] for nombre in nombres]
+    jerks_inicial = [resultados[nombre]['jerk_inicial'] for nombre in nombres]
+    jerks_final = [resultados[nombre]['jerk_final'] for nombre in nombres]
+
+    # Barras de mejora
+    colores = ['#2E8B57' if m > 25 else '#FFA500' if m > 15 else '#FF4500' for m in mejoras]
+    bars = ax1.bar(nombres, mejoras, color=colores, alpha=0.8)
+    ax1.set_ylabel('Mejora del Jerk (%)')
+    ax1.set_title('COMPARACIÓN DE MEJORAS - LAS 5 PRUEBAS')
+    ax1.tick_params(axis='x', rotation=45)
+    ax1.grid(True, alpha=0.3)
+
+    # Añadir valores en las barras
+    for bar, valor in zip(bars, mejoras):
+        ax1.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1,
+                 f'{valor:.1f}%', ha='center', va='bottom', fontweight='bold', fontsize=10)
+
+    # 2. Gráfico de Jerk inicial vs final
+    ax2 = plt.subplot2grid((4, 5), (0, 2), colspan=2)
+    x_pos = np.arange(len(nombres))
+    ancho = 0.35
+
+    ax2.bar(x_pos - ancho / 2, jerks_inicial, ancho, label='Jerk Inicial',
+            alpha=0.7, color='red', edgecolor='darkred')
+    ax2.bar(x_pos + ancho / 2, jerks_final, ancho, label='Jerk Final',
+            alpha=0.7, color='green', edgecolor='darkgreen')
+
+    ax2.set_ylabel('Jerk Promedio')
+    ax2.set_title('JERK INICIAL vs FINAL')
+    ax2.set_xticks(x_pos)
+    ax2.set_xticklabels(nombres, rotation=45)
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+
+    # 3. Resumen estadístico
+    ax3 = plt.subplot2grid((4, 5), (0, 4))
+    ax3.axis('off')
+
+    texto_resumen = "📈 RESUMEN ESTADÍSTICO:\n\n"
+    mejora_promedio = np.mean(mejoras)
+    mejora_max = np.max(mejoras)
+    mejora_min = np.min(mejoras)
+
+    texto_resumen += f"Mejora promedio: {mejora_promedio:.1f}%\n"
+    texto_resumen += f"Mejora máxima: {mejora_max:.1f}%\n"
+    texto_resumen += f"Mejora mínima: {mejora_min:.1f}%\n\n"
+    texto_resumen += f"Pruebas exitosas: {sum(1 for m in mejoras if m > 15)}/5"
+
+    ax3.text(0.1, 0.9, texto_resumen, transform=ax3.transAxes, fontsize=12,
+             verticalalignment='top', fontfamily='monospace',
+             bbox=dict(boxstyle="round,pad=0.5", facecolor="lightblue", alpha=0.8))
+
+    # 4. Trayectorias originales vs optimizadas (fila 1)
+    for i, (nombre, datos) in enumerate(list(resultados.items())[:3]):  # Primeras 3
+        ax = plt.subplot2grid((4, 5), (1, i))
+
+        trayectoria_orig = datos['trayectoria_original']
+        trayectoria_opt = datos['trayectoria_optimizada']
+
+        ax.plot(trayectoria_orig[:, 0], trayectoria_orig[:, 1],
+                'b-', linewidth=2, alpha=0.6, label='Original')
+        ax.plot(trayectoria_opt[:, 0], trayectoria_opt[:, 1],
+                'r-', linewidth=1.5, alpha=0.8, label='Optimizada')
+
+        ax.set_title(f'{nombre}\nJerk: {datos["jerk_inicial"]:.1f} → {datos["jerk_final"]:.1f}')
+        ax.legend(fontsize=8)
+        ax.grid(True, alpha=0.3)
+        ax.set_aspect('equal')
+
+    # 5. Trayectorias originales vs optimizadas (fila 2 - últimas 2)
+    for i, (nombre, datos) in enumerate(list(resultados.items())[3:], 3):  # Últimas 2
+        ax = plt.subplot2grid((4, 5), (1, i))
+
+        trayectoria_orig = datos['trayectoria_original']
+        trayectoria_opt = datos['trayectoria_optimizada']
+
+        ax.plot(trayectoria_orig[:, 0], trayectoria_orig[:, 1],
+                'b-', linewidth=2, alpha=0.6, label='Original')
+        ax.plot(trayectoria_opt[:, 0], trayectoria_opt[:, 1],
+                'r-', linewidth=1.5, alpha=0.8, label='Optimizada')
+
+        ax.set_title(f'{nombre}\nJerk: {datos["jerk_inicial"]:.1f} → {datos["jerk_final"]:.1f}')
+        ax.legend(fontsize=8)
+        ax.grid(True, alpha=0.3)
+        ax.set_aspect('equal')
+
+    # 6. Análisis de jerk detallado para cada prueba (filas 2 y 3)
+    for i, (nombre, datos) in enumerate(resultados.items()):
+        fila = 2 + i // 3  # Distribuir en filas 2 y 3
+        columna = i % 3
+
+        ax = plt.subplot2grid((4, 5), (fila, columna))
+
+        # Calcular jerk instantáneo
+        def calcular_jerk_instantaneo(trayectoria):
+            spline_x = CubicSpline(tiempos, trayectoria[:, 0])
+            spline_y = CubicSpline(tiempos, trayectoria[:, 1])
+            t_denso = np.linspace(tiempos[0], tiempos[-1], 500)
+            jerk_x = spline_x.derivative(3)(t_denso)
+            jerk_y = spline_y.derivative(3)(t_denso)
+            return t_denso, np.sqrt(jerk_x ** 2 + jerk_y ** 2)
+
+        t_denso, jerk_orig = calcular_jerk_instantaneo(datos['trayectoria_original'])
+        _, jerk_opt = calcular_jerk_instantaneo(datos['trayectoria_optimizada'])
+
+        ax.plot(t_denso, jerk_orig, 'b-', alpha=0.6, label='Jerk Original', linewidth=1)
+        ax.plot(t_denso, jerk_opt, 'r-', alpha=0.8, label='Jerk Optimizado', linewidth=1)
+
+        ax.set_title(f'JERK INSTANTÁNEO - {nombre}')
+        ax.set_xlabel('Tiempo (s)')
+        if columna == 0:
+            ax.set_ylabel('Jerk')
+        ax.legend(fontsize=7)
+        ax.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.show()
+
+    # Mostrar resumen numérico
+    print("\n📋 RESUMEN NUMÉRICO DE LAS 5 PRUEBAS:")
+    print("-" * 50)
+    for nombre, datos in resultados.items():
+        print(f"• {nombre}:")
+        print(f"  Jerk inicial: {datos['jerk_inicial']:8.4f}")
+        print(f"  Jerk final:   {datos['jerk_final']:8.4f}")
+        print(f"  Mejora:       {datos['mejora_porcentaje']:7.1f}%")
+        print(
+            f"  Evaluación:   {'✅ EXCELENTE' if datos['mejora_porcentaje'] > 30 else '✅ BUENA' if datos['mejora_porcentaje'] > 20 else '⚠️ MODERADA' if datos['mejora_porcentaje'] > 10 else '❌ BAJA'}")
+        print()
+        def calcular_jerk_instantaneo(trayectoria):
+            spline_x = CubicSpline(tiempos, trayectoria[:, 0])
+            spline_y = CubicSpline(tiempos, trayectoria[:, 1])
+            t_denso = np.linspace(tiempos[0], tiempos[-1], 500)
+            jerk_x = spline_x.derivative(3)(t_denso)
+            jerk_y = spline_y.derivative(3)(t_denso)
+            return t_denso, np.sqrt(jerk_x ** 2 + jerk_y ** 2)
+
+        t_denso, jerk_orig = calcular_jerk_instantaneo(datos['trayectoria_original'])
+        _, jerk_opt = calcular_jerk_instantaneo(datos['trayectoria_optimizada'])
+
+        ax.plot(t_denso, jerk_orig, 'b-', alpha=0.6, label='Jerk Original', linewidth=1)
+        ax.plot(t_denso, jerk_opt, 'r-', alpha=0.8, label='Jerk Optimizado', linewidth=1)
+
+        ax.set_title(f'JERK INSTANTÁNEO - {nombre}')
+        ax.set_xlabel('Tiempo (s)')
+        if i == 0:
+            ax.set_ylabel('Jerk')
+        ax.legend(fontsize=7)
+        ax.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.show()
+
+    # Mostrar resumen numérico
+    print("\n📋 RESUMEN NUMÉRICO DE LAS 5 PRUEBAS:")
+    print("-" * 50)
+    for nombre, datos in resultados.items():
+        print(f"• {nombre}:")
+        print(f"  Jerk inicial: {datos['jerk_inicial']:8.4f}")
+        print(f"  Jerk final:   {datos['jerk_final']:8.4f}")
+        print(f"  Mejora:       {datos['mejora_porcentaje']:7.1f}%")
+        print()
+
+
+# Agregar esta línea al final del código principal para ejecutar las pruebas
+print("\n" + "=" * 70)
+print("🧪 EJECUTANDO PRUEBAS DE ROBUSTEZ...")
+print("=" * 70)
+
+# Ejecutar las pruebas
+resultados_pruebas = evaluar_rutas_pruebas()
+
+
+
